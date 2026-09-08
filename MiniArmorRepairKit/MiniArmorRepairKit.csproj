@@ -23,7 +23,7 @@
 
   <Target Name="DeployToSpt" AfterTargets="Build" Condition="'$(SkipDeploy)' != 'true' AND Exists('$(SptRoot)')">
     <PropertyGroup>
-      <ModDeployDir>$(SptRoot)\SPT\user\mods\MiniArmorRepairKit\</ModDeployDir>
+      <ModDeployDir>$(SptRoot)\SPT_Runtime\user\mods\MiniArmorRepairKit\</ModDeployDir>
     </PropertyGroup>
     <MakeDir Directories="$(ModDeployDir)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModDeployDir)" ContinueOnError="WarnAndContinue" />
