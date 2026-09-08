@@ -28,8 +28,17 @@ public class MiniArmorRepairKitMod(
     /// <summary>The Field Repair Kit's own template id.</summary>
     private static readonly MongoId NewItemId = new("6a7c23c47e28a1c59d51f94c");
 
-    /// <summary>The default inventory template that carries the three special slots.</summary>
-    private static readonly MongoId DefaultInventoryId = new("55d7217a4bdc2d86028b456d");
+    /// <summary>
+    /// The pocket templates that carry the special slots — standard, and the Unheard edition's.
+    /// The special slots live on Pockets, not on the default inventory template, and there is
+    /// more than one pocket template, so both have to be widened or the kit only fits in one
+    /// edition's profile.
+    /// </summary>
+    private static readonly MongoId[] PocketTemplateIds =
+    [
+        new("627a4e6b255f7527fb05a0f6"),
+        new("65e080be269cbd5c5005e529"),
+    ];
 
     /// <summary>Handbook: Barter items → Tools.</summary>
     private const string HandbookToolsCategory = "5b5f704686f77447ec5d76d7";
@@ -106,28 +115,54 @@ public class MiniArmorRepairKitMod(
     /// </summary>
     private int AllowInSpecialSlots()
     {
-        if (!templates.Items.TryGetValue(DefaultInventoryId, out var inventory) || inventory.Properties?.Slots is null)
-        {
-            logger.Warning("[MiniArmorRepairKit] default inventory template has no slots; the kit will not fit a special slot");
-            return 0;
-        }
-
         var updated = 0;
 
-        foreach (var slot in inventory.Properties.Slots)
+        foreach (var pocketId in PocketTemplateIds)
         {
-            if (slot.Name is null || !slot.Name.StartsWith("SpecialSlot", StringComparison.OrdinalIgnoreCase))
+            if (!templates.Items.TryGetValue(pocketId, out var pockets) || pockets?.Properties?.Slots is null)
             {
+                logger.Warning($"[MiniArmorRepairKit] pocket template {pocketId} not found or has no slots");
                 continue;
             }
 
-            foreach (var filter in slot.Properties?.Filters ?? [])
+            var matched = 0;
+
+            foreach (var slot in pockets.Properties.Slots)
             {
-                filter.Filter ??= [];
-                if (filter.Filter.Add(NewItemId))
+                if (slot.Name is null || !slot.Name.StartsWith("SpecialSlot", StringComparison.OrdinalIgnoreCase))
                 {
-                    updated++;
+                    continue;
                 }
+
+                matched++;
+
+                // A special slot with no filter accepts nothing, so give it one rather than
+                // skipping the slot.
+                if (slot.Properties is null)
+                {
+                    continue;
+                }
+
+                var filters = (slot.Properties.Filters ?? []).ToList();
+                if (filters.Count == 0)
+                {
+                    filters.Add(new SlotFilter { Filter = [] });
+                    slot.Properties.Filters = filters;
+                }
+
+                foreach (var filter in filters)
+                {
+                    filter.Filter ??= [];
+                    if (filter.Filter.Add(NewItemId))
+                    {
+                        updated++;
+                    }
+                }
+            }
+
+            if (matched == 0)
+            {
+                logger.Warning($"[MiniArmorRepairKit] pocket template {pocketId} has no SpecialSlot* slots");
             }
         }
 
