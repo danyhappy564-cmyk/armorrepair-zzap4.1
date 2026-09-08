@@ -1,0 +1,14 @@
+<Project>
+
+  <!--
+    Both projects need to find the SPT install. Override with -p:SptRoot=... or an SptRoot
+    environment variable.
+  -->
+  <PropertyGroup>
+    <SptRoot Condition=" '$(SptRoot)' == '' ">E:\SPT 4.1</SptRoot>
+    <SptManaged>$(SptRoot)\EscapeFromTarkov_Data\Managed</SptManaged>
+    <SptBepInEx>$(SptRoot)\BepInEx</SptBepInEx>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+</Project>
