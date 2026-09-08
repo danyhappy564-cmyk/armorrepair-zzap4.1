@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net9.0 -> net10.0 for SPT 4.1. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MiniArmorRepairKit</AssemblyName>
+    <RootNamespace>MiniArmorRepairKit</RootNamespace>
+    <Version>1.2.0</Version>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 4.1 renamed the server packages SPTarkov.* -> SPTushonka.*; the namespaces inside
+         them are unchanged. -->
+    <PackageReference Include="SPTushonka.Common" Version="4.1.5" />
+    <PackageReference Include="SPTushonka.DI" Version="4.1.5" />
+    <PackageReference Include="SPTushonka.Server.Core" Version="4.1.5" />
+  </ItemGroup>
+
+  <Target Name="DeployToSpt" AfterTargets="Build" Condition="'$(SkipDeploy)' != 'true' AND Exists('$(SptRoot)')">
+    <PropertyGroup>
+      <ModDeployDir>$(SptRoot)\SPT\user\mods\MiniArmorRepairKit\</ModDeployDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(ModDeployDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModDeployDir)" ContinueOnError="WarnAndContinue" />
+    <Message Text="Deployed $(TargetFileName) to $(ModDeployDir)" Importance="high" />
+  </Target>
+
+</Project>
