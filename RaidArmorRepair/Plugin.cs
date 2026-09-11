@@ -181,6 +181,21 @@ namespace RaidArmorRepair
             ShowProgressPanel(player);
         }
 
+        /// <summary>
+        /// The vanilla panel (EFT.UI.BattleUIPanelExtraction) closes itself once the duration
+        /// passed to Show() runs out - confirmed by decompiling the client, present in both 4.0
+        /// and 4.1, not something this mod controls. We re-show it every RepairTickInterval, so
+        /// passing exactly that value as the duration means our refresh and the panel's own
+        /// auto-close are scheduled to land on the same frame. Our refresh calls StopCoroutine on
+        /// the old countdown before it gets a chance to run again that frame, so this should not
+        /// race in the normal case - but if a tick's TryRepairArmor call ever throws (see the
+        /// remarks on TryRepairArmor) or any other frame hiccups, there is nothing left to stop
+        /// the vanilla timer, and the panel closes on schedule with no visible explanation. The
+        /// margin below buys slack against exactly that: the panel now outlives one full tick
+        /// even if a single refresh is missed, instead of closing the instant it is due.
+        /// </summary>
+        private const float PanelDurationMargin = 2f;
+
         private void ShowProgressPanel(Player player)
         {
             if (_owner == null)
@@ -190,7 +205,9 @@ namespace RaidArmorRepair
 
             try
             {
-                _owner.ShowObjectivesPanel(RepairService.BuildProgressLabel(RepairService.Peek(player)), RepairTickInterval.Value);
+                _owner.ShowObjectivesPanel(
+                    RepairService.BuildProgressLabel(RepairService.Peek(player)),
+                    RepairTickInterval.Value + PanelDurationMargin);
                 _panelShown = true;
             }
             catch (Exception ex)

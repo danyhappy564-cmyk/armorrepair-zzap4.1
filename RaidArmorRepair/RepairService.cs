@@ -260,7 +260,36 @@ namespace RaidArmorRepair
 
         /// <summary>Applies one repair tick. Returns false when the session should stop —
         /// nothing damaged left, or nothing to repair it with.</summary>
+        /// <remarks>
+        /// Everything below used to run bare. If any of it threw, the exception unwound straight
+        /// out through Plugin.Update() — Unity logs it once and keeps the MonoBehaviour alive,
+        /// but that Update() call stops dead at the throw point. Neither the success branch
+        /// (ShowProgressPanel) nor the failure branch (ResetRepairState) in the caller ever runs,
+        /// so nothing closes the panel and nothing tells the player anything went wrong. The
+        /// progress panel is a vanilla EFT.UI.BattleUIPanelExtraction; its own Show(text, duration)
+        /// starts a coroutine that calls Close() by itself once `duration` elapses (confirmed by
+        /// decompiling both the 4.0 and 4.1 client — not a porting regression, just how it always
+        /// worked). With nobody refreshing it, that is exactly what a silent exception here looks
+        /// like from the player's side: the "repair starting" notification fires, the panel shows,
+        /// and a few seconds later the panel closes on its own timer with no heal ever applied and
+        /// no error notification — because the two explicit failure notifies below never had a
+        /// chance to fire.
+        /// </remarks>
         public static bool TryRepairArmor(Player player)
+        {
+            try
+            {
+                return TryRepairArmorInternal(player);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogError("[RaidArmorRepair] 수리 틱 처리 중 예외 발생: " + ex);
+                Notify(player, "방어구 수리 중 오류가 발생해 이번 시도는 취소되었습니다. (로그 확인 필요)");
+                return false;
+            }
+        }
+
+        private static bool TryRepairArmorInternal(Player player)
         {
             InventoryEquipment equipment = player.Inventory.Equipment;
 
@@ -320,7 +349,19 @@ namespace RaidArmorRepair
             SessionKitResourceUsed += resourceUsed;
             SessionDurabilityRepaired += heal;
 
-            armorItem.RaiseRefreshEvent(false, false);
+            // Durability/resource are already updated above regardless of what happens here — this
+            // is only telling the UI to redraw. armorItem can be a plate nested inside the vest's
+            // ArmorHolderComponent rather than a top-level equipped item; raising the event on a
+            // nested item is the one part of this tick that has ever been iffy across EFT builds,
+            // so a stale tooltip is an acceptable failure mode here, a lost repair is not.
+            try
+            {
+                armorItem.RaiseRefreshEvent(false, false);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("[RaidArmorRepair] RaiseRefreshEvent 실패 (내구도는 이미 적용됨, UI만 안 갱신될 수 있음): " + ex.Message);
+            }
 
             Plugin.Log.LogInfo($"[RaidArmorRepair] 틱 적용: +{heal:0.#} 내구도, 수리킷 -{resourceUsed:0.#}, 지력 보너스 x{intellectMultiplier:0.00}, 최대내구도 -{lossPercent:0.#}%");
 
