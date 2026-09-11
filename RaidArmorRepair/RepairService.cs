@@ -506,7 +506,7 @@ namespace RaidArmorRepair
             }
         }
 
-        private static void Notify(Player player, string message)
+        public static void Notify(Player player, string message)
         {
             if (!Plugin.ShowNotifications.Value)
             {

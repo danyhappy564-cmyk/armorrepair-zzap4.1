@@ -173,8 +173,32 @@ namespace RaidArmorRepair
             }
         }
 
+        /// <summary>
+        /// Checks up front rather than letting the first tick discover it 5 seconds later. Field
+        /// report: a player with no repair kit in their inventory pressed the key, saw "repair
+        /// starting", and then — a full RepairTickInterval later — saw the panel close with no
+        /// heal applied. That is not a bug: TryRepairArmor already declines cleanly and notifies
+        /// "인벤토리에 사용 가능한 방어구 수리 키트가 없습니다." But leading with "시작합니다"
+        /// when the attempt is already doomed (no kit, or armor already at full durability) reads
+        /// as broken even though every step behind it is correct. Checking here means a hopeless
+        /// press gets exactly one message, immediately, instead of a misleading "started" followed
+        /// by a delayed failure that looks like a silent close.
+        /// </summary>
         private void StartRepairSession(Player player)
         {
+            RepairPreview preview = RepairService.Peek(player);
+            if (!preview.HasTarget)
+            {
+                RepairService.Notify(player, "수리할 방어구가 없거나 이미 최대 내구도입니다.");
+                return;
+            }
+
+            if (!preview.HasKit)
+            {
+                RepairService.Notify(player, "인벤토리에 사용 가능한 방어구 수리 키트가 없습니다.");
+                return;
+            }
+
             RepairService.IsRepairing = true;
             _repairTimer = 0f;
             RepairService.NotifyRepairStart(player);
